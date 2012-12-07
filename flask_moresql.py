@@ -108,10 +108,8 @@ class MoreSQL(object):
 
         self.cursor = self.connection.cursor()
 
-    def execute(self, procname, fields=None, values=None):
-        """Execute the given stored procedure. Return results as a JSON
-        HTTP response.
-
+    def get_proc_result(self, procname, fields=None, values=None, do_commit=True):
+        """
         :param procname: the stored procedure name
         :param fields: a list of dictionary fields used as parameters of the
                        stored procedure. The procedure will be called with no
@@ -119,12 +117,16 @@ class MoreSQL(object):
         :param values: an optional dictionary of values from which the
                        parameters should be taken. If omitted, default to the
                        values passed via HTTP
+        :param do_commit: a boolean indicating whether or not there should be
+                          a commit after invoking the stored procedure
         """
+
         procargs = _get_procedure_arguments(fields, values)
 
         result = self.cursor.callproc(procname, procargs)
 
-        self.connection.commit()
+        if do_commit:
+            self.connection.commit()
 
         if procargs == result:
             # The parameters have not been modified. There was no in/out
@@ -137,4 +139,14 @@ class MoreSQL(object):
             else:
                 result = result[0]
 
+        return result
+
+    def execute(self, procname, **proc_options):
+        """Execute the given stored procedure. Return results as a JSON
+        HTTP response.
+        :param procname: the stored procedure name
+        :param proc_options: reffer to `get_proc_result` parameters documentation
+        """
+
+        result = self.get_proc_result(procname, **proc_options)
         return make_response(simplejson.dumps(result))
