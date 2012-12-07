@@ -5,11 +5,13 @@ import simplejson
 
 from flask_moresql import MoreSQL, parse_rfc1738_args
 
+
 class BaseTest(unittest.TestCase):
 
     def setUp(self):
         self.app = flask.Flask(__name__)
         self.app.config['TESTING'] = True
+
 
 class DatabaseURI(BaseTest):
 
@@ -26,19 +28,21 @@ class DatabaseURI(BaseTest):
         self.assertRaises(RuntimeError, MoreSQL, self.app)
 
     def test_postgres_connstring(self):
-        expected = {  
-            'username': 'user', 
-            'password': 'pass', 
+        expected = {
+            'username': 'user',
+            'password': 'pass',
             'host': 'host',
             'port': '5432',
-            'database': 'dbname'
+            'database': 'dbname',
+            'db_type_name' : 'postgres'
         }
 
         db_params = parse_rfc1738_args('postgres://user:pass@host:5432/dbname')
         self.assertEquals(expected, db_params)
 
+
 class BasicApp(BaseTest):
-    
+
     def setUp(self):
         BaseTest.setUp(self)
 
@@ -54,8 +58,8 @@ class BasicApp(BaseTest):
             return_expected = expected
 
         self.db.cursor.execute("""
-            CREATE OR REPLACE FUNCTION get_%s() RETURNS %s AS $$ 
-            BEGIN 
+            CREATE OR REPLACE FUNCTION get_%s() RETURNS %s AS $$
+            BEGIN
                 RETURN %s;
             END;
             $$ LANGUAGE plpgsql;
@@ -93,16 +97,16 @@ class BasicApp(BaseTest):
 
         @self.app.route('/test', methods=['GET'])
         def test():
-            return self.db.execute('sum_n', 
+            return self.db.execute('sum_n',
                 fields=[ 'x', 'y', ])
 
         rv = self.client.get('/test?x=10&y=32')
         self.assertEquals(200, rv.status_code)
         self.assertEquals(42, simplejson.loads(rv.data))
-        
+
     def test_in_out(self):
         self.db.cursor.execute("""
-            CREATE OR REPLACE FUNCTION sum_n_product(x int, y int,  
+            CREATE OR REPLACE FUNCTION sum_n_product(x int, y int,
                 OUT sum int, OUT prod int) AS $$
             BEGIN
                 sum := x + y;
@@ -113,7 +117,7 @@ class BasicApp(BaseTest):
 
         @self.app.route('/test', methods=['GET'])
         def test():
-            return self.db.execute('sum_n_product', 
+            return self.db.execute('sum_n_product',
                 fields=[ 'x', 'y', 'sum', 'prod' ])
 
         rv = self.client.get('/test?x=10&y=32')
@@ -122,7 +126,7 @@ class BasicApp(BaseTest):
 
         @self.app.route('/test_omit_out', methods=['GET'])
         def sum2():
-            return self.db.execute('sum_n_product', 
+            return self.db.execute('sum_n_product',
                 fields=[ 'x', 'y', ])
 
         rv = self.client.get('/test_omit_out?x=10&y=32')
@@ -140,10 +144,10 @@ class BasicApp(BaseTest):
                 len         interval hour to minute
             );
 
-            CREATE OR REPLACE FUNCTION get_films(wanted_title text) 
+            CREATE OR REPLACE FUNCTION get_films(wanted_title text)
             RETURNS TABLE (c char, d integer) AS $$
             BEGIN
-                RETURN QUERY SELECT code, did FROM films 
+                RETURN QUERY SELECT code, did FROM films
                     WHERE title=wanted_title;
             END
             $$ LANGUAGE plpgsql;
@@ -172,7 +176,7 @@ class BasicApp(BaseTest):
         # multiple rows
         rv = self.client.get('/test?title=The Shawshank Redemption')
         self.assertEquals(200, rv.status_code)
-        self.assertEquals([ ['tt011', 42], ['tt012', 43] ], 
+        self.assertEquals([ ['tt011', 42], ['tt012', 43] ],
             simplejson.loads(rv.data))
 
 if __name__ == "__main__":
